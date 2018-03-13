@@ -9,9 +9,11 @@ Helper Scripts to Orchestrate Containers
 
 ```bash
 Usage: run_dock_asuser.sh [-h|--help]
-    [--dockname=name] [--container=docker-container] [--envlist=env1,env2,...]
+    [--dockname=name] [--container=docker-container] [--entrypoint=bash]
+    [--workdir=dir]
+    [--envlist=env1,env2,...]
     [--datamnts=dir1,dir2,...] [--bashinit=some_bash_script]
-    [--keepalive] [--daemon]
+    [--keepalive] [--daemon] [--dockindock]
 
     Sets up an interactive docker container environment session with user
     privileges. If --daemon option then just launches the docker container as a
@@ -24,6 +26,12 @@ Usage: run_dock_asuser.sh [-h|--help]
 
     --container - Docker container tag/url.
         Default: tensorflow/tensorflow:1.3.0-devel-gpu
+
+    --entrypoint - Entrypoint override. If not specified runs the containers
+        entrypoint. For generic entrypoint specify bash. Default: default
+
+    --workdir - Work directory in which to launch main container session.
+        Default: Current Working Directory i.e. PWD
 
     --envlist - Environment variable(s) to add into the container. Comma separated.
         Useful for CUDA_VISIBLE_DEVICES for example.
@@ -38,6 +46,8 @@ Usage: run_dock_asuser.sh [-h|--help]
 
     --daemon - Do not start an interactive session in container. Just launch
         a daemon session. Default: false
+
+    --dockindock - Special options to enable docker in docker. Default: false
 
     -h|--help - Displays this help.
 ```
