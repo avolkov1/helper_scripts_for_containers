@@ -13,7 +13,7 @@ Usage: run_dock_asuser.sh [-h|--help]
     [--workdir=dir]
     [--envlist=env1,env2,...]
     [--datamnts=dir1,dir2,...] [--bashinit=some_bash_script]
-    [--keepalive] [--daemon] [--dockindock]
+    [--keepalive] [--daemon] [--dockindock] [--privileged]
 
     Sets up an interactive docker container environment session with user
     privileges. If --daemon option then just launches the docker container as a
@@ -48,6 +48,12 @@ Usage: run_dock_asuser.sh [-h|--help]
         a daemon session. Default: false
 
     --dockindock - Special options to enable docker in docker. Default: false
+
+    --privileged - Certain features of docker containers need to run in
+        privileged mode. Refer to docker documentation for the privileged option
+        explanation. With privileged option the NV_GPU (or NVIDIA_VISIBLE_DEVICES)
+        environment variable is ignored. Use CUDA_VISIBLE_DEVICES for GPU
+        isolation at application layer.
 
     -h|--help - Displays this help.
 ```

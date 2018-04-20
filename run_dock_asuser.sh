@@ -20,6 +20,8 @@ daemon=false
 
 dockindock=false
 
+privileged=false
+
 usage() {
 cat <<EOF
 Usage: $(basename $0) [-h|--help]
@@ -27,7 +29,7 @@ Usage: $(basename $0) [-h|--help]
     [--workdir=dir]
     [--envlist=env1,env2,...]
     [--datamnts=dir1,dir2,...] [--bashinit=some_bash_script]
-    [--keepalive] [--daemon] [--dockindock]
+    [--keepalive] [--daemon] [--dockindock] [--privileged]
 
     Sets up an interactive docker container environment session with user
     privileges. If --daemon option then just launches the docker container as a
@@ -63,6 +65,12 @@ Usage: $(basename $0) [-h|--help]
 
     --dockindock - Special options to enable docker in docker. Default: ${dockindock}
 
+    --privileged - Certain features of docker containers need to run in
+        privileged mode. Refer to docker documentation for the privileged option
+        explanation. With privileged option the NV_GPU (or NVIDIA_VISIBLE_DEVICES)
+        environment variable is ignored. Use CUDA_VISIBLE_DEVICES for GPU
+        isolation at application layer.
+
     -h|--help - Displays this help.
 
 EOF
@@ -90,6 +98,7 @@ while getopts ":h-" arg; do
         --keepalive ) larguments=no; keepalive=true  ;;
         --daemon ) larguments=no; daemon=true  ;;
         --dockindock ) larguments=no; dockindock=true  ;;
+        --privileged ) larguments=no; privileged=true  ;;
         --help ) usage; exit 2 ;;
         --* ) remain_args+=($_OPTION) ;;
         esac
@@ -108,7 +117,7 @@ if [ ! -z "${envlist// }" ]; then
         envvars="-e ${evar}=${!evar} ${envvars}"
     done
 fi
-
+# echo envvars: ${envvars}
 
 # mntdata=$([[ ! -z "${datamnt// }" ]] && echo "-v ${datamnt}:${datamnt}:ro" )
 mntdata=''
@@ -134,7 +143,7 @@ getent passwd > passwd
 USERGROUPOPTS="-v $PWD/passwd:/etc/passwd:ro -v $PWD/group:/etc/group:ro"
 
 # append any special users from the container
-nvidia-docker run --rm -ti \
+nvidia-docker run --rm \
   $USEROPTS \
   -w $PWD --entrypoint=bash $SOMECONTAINER -c 'cat /etc/passwd' >> passwd
 
@@ -144,10 +153,15 @@ if [ "$dockindock" = true ] ; then
       -v /var/run/docker.sock:/var/run/docker.sock "
 fi
 
+privilegedopt=''
+if [ "$privileged" = true ] ; then
+    privilegedopt="--privileged"
+fi
+
 # run as user with my privileges and group mapped into the container
 # "$(hostname)_contain" \
 # nvidia-docker run --rm -ti --name=mydock \
-nvidia-docker run -d -t --name=${dockname} --net=host \
+nvidia-docker run -d -t --name=${dockname} --net=host ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
   --hostname "$(hostname)_contain" \
   ${dockindockopts} \
