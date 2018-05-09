@@ -12,6 +12,8 @@ workdir=$PWD
 
 envlist=''
 
+dockopts=''
+
 bashinit="${_basedir}/blank_init.sh"
 
 keepalive=false
@@ -30,6 +32,7 @@ Usage: $(basename $0) [-h|--help]
     [--envlist=env1,env2,...]
     [--datamnts=dir1,dir2,...] [--bashinit=some_bash_script]
     [--keepalive] [--daemon] [--dockindock] [--privileged]
+    [--dockopts="--someopt1=opt1 --someopt2=opt2"]
 
     Sets up an interactive docker container environment session with user
     privileges. If --daemon option then just launches the docker container as a
@@ -71,6 +74,15 @@ Usage: $(basename $0) [-h|--help]
         environment variable is ignored. Use CUDA_VISIBLE_DEVICES for GPU
         isolation at application layer.
 
+    --dockopts - Additional docker options not covered above. These are passed
+        to the docker service session. Use quotes to keep the additional
+        options together. Example:
+            --dockopts="--ipc=host -e MYVAR=SOMEVALUE -v /datasets:/data"
+        The "--ipc=host" can be used for MPS with nvidia-docker2. Any
+        additional docker option that is not exposed above can be set through
+        this option. In the example the "/datasets" is mapped to "/data" in the
+        container instead of using "--datamnts".
+
     -h|--help - Displays this help.
 
 EOF
@@ -99,6 +111,9 @@ while getopts ":h-" arg; do
         --daemon ) larguments=no; daemon=true  ;;
         --dockindock ) larguments=no; dockindock=true  ;;
         --privileged ) larguments=no; privileged=true  ;;
+        --dockopts ) larguments=yes;
+            # https://unix.stackexchange.com/questions/53310/splitting-string-by-the-first-occurrence-of-a-delimiter
+            dockopts="$( cut -d '=' -f 2- <<< "$_OPTION" )";  ;;
         --help ) usage; exit 2 ;;
         --* ) remain_args+=($_OPTION) ;;
         esac
@@ -159,9 +174,8 @@ if [ "$privileged" = true ] ; then
 fi
 
 # run as user with my privileges and group mapped into the container
-# "$(hostname)_contain" \
-# nvidia-docker run --rm -ti --name=mydock \
-nvidia-docker run -d -t --name=${dockname} --net=host ${privilegedopt} \
+# echo dockopts: $dockopts
+nvidia-docker run -d -t --name=${dockname} $dockopts --net=host ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
   --hostname "$(hostname)_contain" \
   ${dockindockopts} \
