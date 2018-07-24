@@ -2,8 +2,8 @@
 
 _basedir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-dockname='mydock'
-container=tensorflow/tensorflow:1.3.0-devel-gpu
+dockname="${USER}_dock"
+container=nvidia/cuda:9.0-runtime-ubuntu16.04
 datamnts=''
 
 entrypoint=''
@@ -13,12 +13,14 @@ workdir=$PWD
 envlist=''
 
 dockopts=''
+dockcmd=''
 
 bashinit="${_basedir}/blank_init.sh"
 
 keepalive=false
 
 daemon=false
+noninteractive=false
 
 dockindock=false
 
@@ -40,8 +42,15 @@ Usage: $(basename $0) [-h|--help]
         "docker exec -it <dockname> bash"
     Use equal sign "=" for arguments, do not separate by space.
 
+    Some common issues to be aware of:
+        1. If you get an error:
+             container init caused \"mkdir <HOME>/<somedir>: permission denied\""
+           You need to set the execute bit on your home directory for others
+           and recursively to the desired <somedir> or workdir option.
+            chmod o+x <HOME>
+
     --dockname - Name to use when launching container.
-        Default: ${dockname}
+        Default: <USER>_dock
 
     --container - Docker container tag/url.
         Default: ${container}
@@ -50,6 +59,7 @@ Usage: $(basename $0) [-h|--help]
         entrypoint. For generic entrypoint specify bash. Default: default
 
     --workdir - Work directory in which to launch main container session.
+        Set to "default" to use the container's default workdir.
         Default: Current Working Directory i.e. PWD
 
     --envlist - Environment variable(s) to add into the container. Comma separated.
@@ -83,6 +93,17 @@ Usage: $(basename $0) [-h|--help]
         this option. In the example the "/datasets" is mapped to "/data" in the
         container instead of using "--datamnts".
 
+    --dockcmd - Commands to pass to the container. I.e. when running like this:
+        docker run <dockopts> <entrypoint> <container> <dockcmd>
+        Where the other options are as documented above. 
+
+    --noninteractive - Typically the container is launched as a service and
+        attached to interactively or if daemon option then just left in the
+        background. This option is meant for containers that just run some
+        utility code and are not meant to be used interactively or as a service.
+        An example would be running p2pBandwidthLatencyTest in a container.
+            run_dock_asuser.sh --container=<p2pBandwidthContainer> --noninteractive --workdir=default
+
     -h|--help - Displays this help.
 
 EOF
@@ -109,11 +130,14 @@ while getopts ":h-" arg; do
         --datamnts ) larguments=yes; datamnts="$OPTARG"  ;;
         --keepalive ) larguments=no; keepalive=true  ;;
         --daemon ) larguments=no; daemon=true  ;;
+        --noninteractive ) larguments=no; noninteractive=true  ;;
         --dockindock ) larguments=no; dockindock=true  ;;
         --privileged ) larguments=no; privileged=true  ;;
         --dockopts ) larguments=yes;
             # https://unix.stackexchange.com/questions/53310/splitting-string-by-the-first-occurrence-of-a-delimiter
             dockopts="$( cut -d '=' -f 2- <<< "$_OPTION" )";  ;;
+        --dockcmd ) larguments=yes;
+            dockcmd="$( cut -d '=' -f 2- <<< "$_OPTION" )";  ;;
         --help ) usage; exit 2 ;;
         --* ) remain_args+=($_OPTION) ;;
         esac
@@ -147,6 +171,11 @@ if [ ! -z "${entrypoint}" ]; then
     entrypointopt="--entrypoint=${entrypoint}"
 fi
 
+workdiropt=''
+if [ ! "${workdir}" = "default" ]; then
+    workdiropt="--workdir=${workdir}"
+fi
+
 # deb/ubuntu based containers
 SOMECONTAINER=$container  # deb/ubuntu based containers
 
@@ -173,13 +202,25 @@ if [ "$privileged" = true ] ; then
     privilegedopt="--privileged"
 fi
 
+if [ "$noninteractive" = true ] ; then
+  nvidia-docker run --rm -t --name=${dockname} $dockopts --net=host ${privilegedopt} \
+    $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
+    --hostname "$(hostname)_contain" \
+    ${dockindockopts} \
+    ${workdiropt} $entrypointopt $SOMECONTAINER $dockcmd
+
+  exit
+
+fi
+
 # run as user with my privileges and group mapped into the container
 # echo dockopts: $dockopts
 nvidia-docker run -d -t --name=${dockname} $dockopts --net=host ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
   --hostname "$(hostname)_contain" \
   ${dockindockopts} \
-  -w $workdir $entrypointopt $SOMECONTAINER
+  ${workdiropt} $entrypointopt $SOMECONTAINER $dockcmd
+
 
 if [ "$dockindock" = true ] ; then
     # load all the nvml stuff. Not sure if this is needed in everything.
