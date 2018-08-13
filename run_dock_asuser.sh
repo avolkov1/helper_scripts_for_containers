@@ -12,6 +12,8 @@ workdir=$PWD
 
 envlist=''
 
+
+network=''
 dockopts=''
 dockcmd=''
 
@@ -32,6 +34,7 @@ Usage: $(basename $0) [-h|--help]
     [--dockname=name] [--container=docker-container] [--entrypoint=bash]
     [--workdir=dir]
     [--envlist=env1,env2,...]
+    [--net=network_option]
     [--datamnts=dir1,dir2,...] [--bashinit=some_bash_script]
     [--keepalive] [--daemon] [--dockindock] [--privileged]
     [--dockopts="--someopt1=opt1 --someopt2=opt2"]
@@ -64,6 +67,9 @@ Usage: $(basename $0) [-h|--help]
 
     --envlist - Environment variable(s) to add into the container. Comma separated.
         Useful for CUDA_VISIBLE_DEVICES for example.
+
+    --net - Passthrough for docker. Typically one of: bridge, host, overlay
+        Refer to: https://docs.docker.com/network/
 
     --datamnts - Data directory(s) to mount into the container. Comma separated.
 
@@ -133,6 +139,8 @@ while getopts ":h-" arg; do
         --noninteractive ) larguments=no; noninteractive=true  ;;
         --dockindock ) larguments=no; dockindock=true  ;;
         --privileged ) larguments=no; privileged=true  ;;
+        --net ) larguments=yes;
+            network="$( cut -d '=' -f 2- <<< "$_OPTION" )";  ;;
         --dockopts ) larguments=yes;
             # https://unix.stackexchange.com/questions/53310/splitting-string-by-the-first-occurrence-of-a-delimiter
             dockopts="$( cut -d '=' -f 2- <<< "$_OPTION" )";  ;;
@@ -165,6 +173,12 @@ if [ ! -z "${datamnts// }" ]; then
         mntdata="-v ${mnt}:${mnt} ${mntdata}"
     done
 fi
+
+networkopts=''
+if [ ! -z "${network}" ]; then
+    networkopts="--net=${network}"
+fi
+
 
 entrypointopt=''
 if [ ! -z "${entrypoint}" ]; then
@@ -203,7 +217,7 @@ if [ "$privileged" = true ] ; then
 fi
 
 if [ "$noninteractive" = true ] ; then
-  nvidia-docker run --rm -t --name=${dockname} $dockopts --net=host ${privilegedopt} \
+  nvidia-docker run --rm -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
     $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
     --hostname "$(hostname)_contain" \
     ${dockindockopts} \
@@ -215,7 +229,7 @@ fi
 
 # run as user with my privileges and group mapped into the container
 # echo dockopts: $dockopts
-nvidia-docker run -d -t --name=${dockname} $dockopts --net=host ${privilegedopt} \
+nvidia-docker run -d -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
   --hostname "$(hostname)_contain" \
   ${dockindockopts} \
