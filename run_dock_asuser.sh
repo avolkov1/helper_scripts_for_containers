@@ -3,19 +3,18 @@
 _basedir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 dockname="${USER}_dock"
-container=nvidia/cuda:9.0-runtime-ubuntu16.04
-datamnts=''
+container=""
+datamnts=""
 
-entrypoint=''
+entrypoint=""
 
 workdir=$PWD
 
-envlist=''
+envlist=""
 
-
-network=''
-dockopts=''
-dockcmd=''
+network=""
+dockopts=""
+dockcmd=""
 
 bashinit="${_basedir}/blank_init.sh"
 
@@ -55,8 +54,7 @@ Usage: $(basename $0) [-h|--help]
     --dockname - Name to use when launching container.
         Default: <USER>_dock
 
-    --container - Docker container tag/url.
-        Default: ${container}
+    --container - Docker container tag/url. Required parameter.
 
     --entrypoint - Entrypoint override. If not specified runs the containers
         entrypoint. For generic entrypoint specify bash. Default: default
@@ -155,6 +153,11 @@ while getopts ":h-" arg; do
     esac
 done
 
+if [ -z "$container" ]; then
+    echo "ERROR: CONTAINER NOT SPECIFIED. Specify via --container=<tag/url>. Refer to --help"
+    exit 2
+fi
+
 # grab all other remaning args.
 remain_args+=($@)
 
@@ -219,7 +222,7 @@ fi
 if [ "$noninteractive" = true ] ; then
   nvidia-docker run --rm -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
     $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
-    --hostname "$(hostname)_contain" \
+    --hostname "$(hostname)-contain" \
     ${dockindockopts} \
     ${workdiropt} $entrypointopt $SOMECONTAINER $dockcmd
 
@@ -231,7 +234,7 @@ fi
 # echo dockopts: $dockopts
 nvidia-docker run -d -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
-  --hostname "$(hostname)_contain" \
+  --hostname "$(hostname)-contain" \
   ${dockindockopts} \
   ${workdiropt} $entrypointopt $SOMECONTAINER $dockcmd
 
