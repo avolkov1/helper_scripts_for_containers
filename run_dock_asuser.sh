@@ -161,6 +161,12 @@ fi
 # grab all other remaning args.
 remain_args+=($@)
 
+# Set the NV_GPU to allocated GPUs (useful if using a resource manager).
+# This does not guarantee CPU-Cores or affinities set via resource manager.
+if [ -z ${NV_GPU:+x} ]; then
+    export NV_GPU="$(nvidia-smi -q | grep UUID | awk '{ print $4 }' | tr '\n' ',')"
+fi
+
 envvars=''
 if [ ! -z "${envlist// }" ]; then
     for evar in ${envlist//,/ } ; do
