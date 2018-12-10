@@ -211,7 +211,7 @@ USERGROUPOPTS="-v $PWD/passwd:/etc/passwd:ro -v $PWD/group:/etc/group:ro"
 
 # append any special users from the container
 nvidia-docker run --rm \
-  $USEROPTS \
+  $USEROPTS $envvars \
   -w $PWD --entrypoint=bash $SOMECONTAINER -c 'cat /etc/passwd' >> passwd
 
 dockindockopts=''
