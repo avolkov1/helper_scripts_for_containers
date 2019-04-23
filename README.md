@@ -12,6 +12,7 @@ Usage: run_dock_asuser.sh [-h|--help]
     [--dockname=name] [--container=docker-container] [--entrypoint=bash]
     [--workdir=dir]
     [--envlist=env1,env2,...]
+    [--net=network_option]
     [--datamnts=dir1,dir2,...] [--bashinit=some_bash_script]
     [--keepalive] [--daemon] [--dockindock] [--privileged]
     [--dockopts="--someopt1=opt1 --someopt2=opt2"]
@@ -29,11 +30,15 @@ Usage: run_dock_asuser.sh [-h|--help]
            and recursively to the desired <somedir> or workdir option.
             chmod o+x <HOME>
 
+    --nvdock1 - Use nvidia-docker 1 wrapper for legacy nvidia-docker. The
+        preferred nvidia-docker is version 2 which uses libnivdia-container
+        runc runtime i.e. "docker run --runtime=nvidia ...".
+        Default: false
+
     --dockname - Name to use when launching container.
         Default: <USER>_dock
 
-    --container - Docker container tag/url.
-        Default: nvidia/cuda:9.0-runtime-ubuntu16.04
+    --container - Docker container tag/url. Required parameter.
 
     --entrypoint - Entrypoint override. If not specified runs the containers
         entrypoint. For generic entrypoint specify bash. Default: default
@@ -44,6 +49,9 @@ Usage: run_dock_asuser.sh [-h|--help]
 
     --envlist - Environment variable(s) to add into the container. Comma separated.
         Useful for CUDA_VISIBLE_DEVICES for example.
+
+    --net - Passthrough for docker. Typically one of: bridge, host, overlay
+        Refer to: https://docs.docker.com/network/
 
     --datamnts - Data directory(s) to mount into the container. Comma separated.
 
