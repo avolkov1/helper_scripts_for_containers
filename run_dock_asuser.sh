@@ -27,6 +27,8 @@ dockindock=false
 
 privileged=false
 
+nvdock1=false
+
 usage() {
 cat <<EOF
 Usage: $(basename $0) [-h|--help]
@@ -50,6 +52,11 @@ Usage: $(basename $0) [-h|--help]
            You need to set the execute bit on your home directory for others
            and recursively to the desired <somedir> or workdir option.
             chmod o+x <HOME>
+
+    --nvdock1 - Use nvidia-docker 1 wrapper for legacy nvidia-docker. The
+        preferred nvidia-docker is version 2 which uses libnivdia-container
+        runc runtime i.e. "docker run --runtime=nvidia ...".
+        Default: ${nvdock1}
 
     --dockname - Name to use when launching container.
         Default: <USER>_dock
@@ -135,6 +142,7 @@ while getopts ":h-" arg; do
         --keepalive ) larguments=no; keepalive=true  ;;
         --daemon ) larguments=no; daemon=true  ;;
         --noninteractive ) larguments=no; noninteractive=true  ;;
+        --nvdock1 ) larguments=no; nvdock1=true  ;;
         --dockindock ) larguments=no; dockindock=true  ;;
         --privileged ) larguments=no; privileged=true  ;;
         --net ) larguments=yes;
@@ -160,6 +168,18 @@ fi
 
 # grab all other remaning args.
 remain_args+=($@)
+
+nvdocker () {
+    docker run --runtime=nvidia "$@"
+}
+
+if [ "$nvdock1" = true ] ; then
+nvdocker () {
+    nvidia-docker run "$@"
+}
+fi
+
+# typeset -f nvdocker
 
 # Set the NV_GPU to allocated GPUs (useful if using a resource manager).
 # This does not guarantee CPU-Cores or affinities set via resource manager.
@@ -210,7 +230,7 @@ getent passwd > passwd
 USERGROUPOPTS="-v $PWD/passwd:/etc/passwd:ro -v $PWD/group:/etc/group:ro"
 
 # append any special users from the container
-nvidia-docker run --rm \
+nvdocker --rm \
   $USEROPTS $envvars \
   -w $PWD --entrypoint=bash $SOMECONTAINER -c 'cat /etc/passwd' >> passwd
 
@@ -226,7 +246,7 @@ if [ "$privileged" = true ] ; then
 fi
 
 if [ "$noninteractive" = true ] ; then
-  nvidia-docker run --rm -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
+  nvdocker --rm -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
     $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
     --hostname "$(hostname)-contain" \
     ${dockindockopts} \
@@ -238,7 +258,7 @@ fi
 
 # run as user with my privileges and group mapped into the container
 # echo dockopts: $dockopts
-nvidia-docker run -d -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
+nvdocker -d -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
   --hostname "$(hostname)-contain" \
   ${dockindockopts} \
