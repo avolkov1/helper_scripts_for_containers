@@ -2,6 +2,8 @@
 
 _basedir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+userdefault=false
+
 dockname="${USER}_dock"
 container=""
 datamnts=""
@@ -32,6 +34,8 @@ nvdock1=false
 usage() {
 cat <<EOF
 Usage: $(basename $0) [-h|--help]
+    [--userdefault]
+    [--nvdock1]
     [--dockname=name] [--container=docker-container] [--entrypoint=bash]
     [--workdir=dir]
     [--envlist=env1,env2,...]
@@ -53,8 +57,13 @@ Usage: $(basename $0) [-h|--help]
            and recursively to the desired <somedir> or workdir option.
             chmod o+x <HOME>
 
+    --userdefault - This script is meant to run with user privileges.
+        Convenience to run as default user (typically root user) in the container
+        specify this option.
+        Default: ${userdefault}
+
     --nvdock1 - Use nvidia-docker 1 wrapper for legacy nvidia-docker. The
-        preferred nvidia-docker is version 2 which uses libnivdia-container
+        preferred nvidia-docker is version 2 which uses libnvidia-container
         runc runtime i.e. "docker run --runtime=nvidia ...".
         Default: ${nvdock1}
 
@@ -139,6 +148,7 @@ while getopts ":h-" arg; do
         --workdir ) larguments=yes; workdir="$OPTARG"  ;;
         --envlist ) larguments=yes; envlist="$OPTARG"  ;;
         --datamnts ) larguments=yes; datamnts="$OPTARG"  ;;
+        --userdefault ) larguments=no; userdefault=true  ;;
         --keepalive ) larguments=no; keepalive=true  ;;
         --daemon ) larguments=no; daemon=true  ;;
         --noninteractive ) larguments=no; noninteractive=true  ;;
@@ -223,11 +233,19 @@ fi
 SOMECONTAINER=$container  # deb/ubuntu based containers
 
 RECOMMENDEDOPTS="--shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864"
+
+if [ "$userdefault" = false ] ; then
 USEROPTS="-u $(id -u):$(id -g) -e HOME=$HOME -e USER=$USER -v $HOME:$HOME"
 getent group > group
 getent passwd > passwd
 
 USERGROUPOPTS="-v $PWD/passwd:/etc/passwd:ro -v $PWD/group:/etc/group:ro"
+else
+
+USEROPTS=''
+USERGROUPOPTS=''
+
+fi
 
 # append any special users from the container
 nvdocker --rm \
