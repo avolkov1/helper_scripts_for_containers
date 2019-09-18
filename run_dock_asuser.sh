@@ -197,12 +197,21 @@ if [ -z ${NV_GPU:+x} ]; then
     export NV_GPU="$(nvidia-smi -q | grep UUID | awk '{ print $4 }' | tr '\n' ',')"
 fi
 
+if [ -z ${NVIDIA_VISIBLE_DEVICES:+x} ]; then
+    export NVIDIA_VISIBLE_DEVICES=$NV_GPU
+fi
+
 envvars=''
 if [ ! -z "${envlist// }" ]; then
     for evar in ${envlist//,/ } ; do
         envvars="-e ${evar}=${!evar} ${envvars}"
     done
 fi
+
+if [[ ! $envvars == *"NVIDIA_VISIBLE_DEVICES"* ]]; then
+  envvars="-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES} ${envvars}"
+fi
+
 # echo envvars: ${envvars}
 
 # mntdata=$([[ ! -z "${datamnt// }" ]] && echo "-v ${datamnt}:${datamnt}:ro" )
