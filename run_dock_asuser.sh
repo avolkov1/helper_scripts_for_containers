@@ -30,12 +30,13 @@ dockindock=false
 privileged=false
 
 nvdock1=false
+nvdock2=false
 
 usage() {
 cat <<EOF
 Usage: $(basename $0) [-h|--help]
     [--userdefault]
-    [--nvdock1]
+    [--nvdock1] [--nvdock2]
     [--dockname=name] [--container=docker-container] [--entrypoint=bash]
     [--workdir=dir]
     [--envlist=env1,env2,...]
@@ -44,11 +45,15 @@ Usage: $(basename $0) [-h|--help]
     [--keepalive] [--daemon] [--dockindock] [--privileged]
     [--dockopts="--someopt1=opt1 --someopt2=opt2"]
 
+    Default uses "--gpus" docker option. For legacy nvidia-docker use nvdock1
+    or nvdock2.
+
     Sets up an interactive docker container environment session with user
     privileges. If --daemon option then just launches the docker container as a
     daemon without interactive session. Attach via:
         "docker exec -it <dockname> bash"
     Use equal sign "=" for arguments, do not separate by space.
+
 
     Some common issues to be aware of:
         1. If you get an error:
@@ -66,6 +71,10 @@ Usage: $(basename $0) [-h|--help]
         preferred nvidia-docker is version 2 which uses libnvidia-container
         runc runtime i.e. "docker run --runtime=nvidia ...".
         Default: ${nvdock1}
+
+    --nvdock2 - Use nvidia-docker 2 which uses libnvidia-container runc runtime
+        i.e. "docker run --runtime=nvidia ...".
+        Default: ${nvdock2}
 
     --dockname - Name to use when launching container.
         Default: <USER>_dock
@@ -153,6 +162,7 @@ while getopts ":h-" arg; do
         --daemon ) larguments=no; daemon=true  ;;
         --noninteractive ) larguments=no; noninteractive=true  ;;
         --nvdock1 ) larguments=no; nvdock1=true  ;;
+        --nvdock2 ) larguments=no; nvdock2=true  ;;
         --dockindock ) larguments=no; dockindock=true  ;;
         --privileged ) larguments=no; privileged=true  ;;
         --net ) larguments=yes;
@@ -179,16 +189,6 @@ fi
 # grab all other remaning args.
 remain_args+=($@)
 
-nvdocker () {
-    docker run --runtime=nvidia "$@"
-}
-
-if [ "$nvdock1" = true ] ; then
-nvdocker () {
-    nvidia-docker run "$@"
-}
-fi
-
 # typeset -f nvdocker
 
 # Set the NV_GPU to allocated GPUs (useful if using a resource manager).
@@ -200,6 +200,32 @@ fi
 if [ -z ${NVIDIA_VISIBLE_DEVICES:+x} ]; then
     export NVIDIA_VISIBLE_DEVICES=$NV_GPU
 fi
+
+
+nvdocker () {
+    export dev_=\"device=${NVIDIA_VISIBLE_DEVICES}\"
+    docker run --gpus ${dev_} $@
+
+    # export dev_=\'\"$(echo device=${NVIDIA_VISIBLE_DEVICES})\"\'
+#launchcmd=$(cat <<EOF
+#docker run --gpus ${dev_} $@
+#EOF
+#)
+#eval $launchcmd
+}
+
+if [ "$nvdock2" = true ] ; then
+nvdocker () {
+    docker run --runtime=nvidia "$@"
+}
+fi
+
+if [ "$nvdock1" = true ] ; then
+nvdocker () {
+    nvidia-docker run "$@"
+}
+fi
+
 
 envvars=''
 if [ ! -z "${envlist// }" ]; then
@@ -273,7 +299,13 @@ if [ "$privileged" = true ] ; then
 fi
 
 if [ "$noninteractive" = true ] ; then
-  nvdocker --rm -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
+
+    keepaliveopt='--rm'
+    if [ "$keepalive" = true ] ; then
+        keepaliveopt=""
+    fi
+
+  nvdocker $keepaliveopt -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
     $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
     --hostname "$(hostname)-contain" \
     ${dockindockopts} \
