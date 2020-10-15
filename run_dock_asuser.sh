@@ -29,6 +29,8 @@ dockindock=false
 
 privileged=false
 
+ibdevices=false
+
 nvdock1=false
 nvdock2=false
 
@@ -41,6 +43,7 @@ Usage: $(basename $0) [-h|--help]
     [--workdir=dir]
     [--envlist=env1,env2,...]
     [--net=network_option]
+    [--ibdevices]
     [--datamnts=dir1,dir2,...] [--bashinit=some_bash_script]
     [--keepalive] [--daemon] [--dockindock] [--privileged]
     [--dockopts="--someopt1=opt1 --someopt2=opt2"]
@@ -93,6 +96,11 @@ Usage: $(basename $0) [-h|--help]
 
     --net - Passthrough for docker. Typically one of: bridge, host, overlay
         Refer to: https://docs.docker.com/network/
+
+    --ibdevices - Add options "--cap-add=IPC_LOCK --device=/dev/infiniband" to
+        docker launch command options. This will mount your Mellanox devices
+        (/dev/infiniband) in the container and enable the IPC_LOCK capability
+        for memory registration.
 
     --datamnts - Data directory(s) to mount into the container. Comma separated.
 
@@ -165,6 +173,7 @@ while getopts ":h-" arg; do
         --nvdock2 ) larguments=no; nvdock2=true  ;;
         --dockindock ) larguments=no; dockindock=true  ;;
         --privileged ) larguments=no; privileged=true  ;;
+        --ibdevices ) larguments=no; ibdevices=true  ;;
         --net ) larguments=yes;
             network="$( cut -d '=' -f 2- <<< "$_OPTION" )";  ;;
         --dockopts ) larguments=yes;
@@ -298,6 +307,10 @@ if [ "$privileged" = true ] ; then
     privilegedopt="--privileged"
 fi
 
+if [ "$ibdevices" = true ] ; then
+    ibdevicesopts="--cap-add=IPC_LOCK --device=/dev/infiniband"
+fi
+
 if [ "$noninteractive" = true ] ; then
 
     keepaliveopt='--rm'
@@ -305,11 +318,12 @@ if [ "$noninteractive" = true ] ; then
         keepaliveopt=""
     fi
 
-  nvdocker $keepaliveopt -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
+  nvdocker $keepaliveopt -t --name=${dockname} \
+    $networkopts ${ibdevicesopts} ${privilegedopt} \
     $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
     --hostname "$(hostname)-contain" \
     ${dockindockopts} \
-    ${workdiropt} $entrypointopt $SOMECONTAINER $dockcmd
+    ${workdiropt} $entrypointopt $dockopts $SOMECONTAINER $dockcmd
 
   exit
 
@@ -317,11 +331,17 @@ fi
 
 # run as user with my privileges and group mapped into the container
 # echo dockopts: $dockopts
-nvdocker -d -t --name=${dockname} $dockopts $networkopts ${privilegedopt} \
+nvdocker -d -t --name=${dockname} \
+  $networkopts ${ibdevicesopts} ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
   --hostname "$(hostname)-contain" \
   ${dockindockopts} \
-  ${workdiropt} $entrypointopt $SOMECONTAINER $dockcmd
+  ${workdiropt} $entrypointopt $dockopts $SOMECONTAINER $dockcmd
+
+
+if [ $? != 0 ] ; then
+    exit $?
+fi
 
 
 if [ "$dockindock" = true ] ; then
