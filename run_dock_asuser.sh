@@ -291,6 +291,10 @@ USERGROUPOPTS=''
 
 fi
 
+hostname_="$(hostname)-contain"
+hostip_=$(hostname -i)
+hostnameopts="--hostname ${hostname_} --add-host ${hostname_}:${hostip_} --add-host $(hostname):${hostip_}"
+
 # append any special users from the container
 nvdocker --rm \
   $USEROPTS $envvars \
@@ -321,7 +325,7 @@ if [ "$noninteractive" = true ] ; then
   nvdocker $keepaliveopt -t --name=${dockname} \
     $networkopts ${ibdevicesopts} ${privilegedopt} \
     $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
-    --hostname "$(hostname)-contain" \
+    ${hostnameopts} \
     ${dockindockopts} \
     ${workdiropt} $entrypointopt $dockopts $SOMECONTAINER $dockcmd
 
@@ -334,7 +338,7 @@ fi
 nvdocker -d -t --name=${dockname} \
   $networkopts ${ibdevicesopts} ${privilegedopt} \
   $USEROPTS $USERGROUPOPTS $mntdata $envvars $RECOMMENDEDOPTS \
-  --hostname "$(hostname)-contain" \
+  ${hostnameopts} \
   ${dockindockopts} \
   ${workdiropt} $entrypointopt $dockopts $SOMECONTAINER $dockcmd
 
